@@ -196,12 +196,12 @@ export function WaterPanel() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={consumptionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="time" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
+                  <XAxis dataKey="time" stroke="var(--color-slate-500)" />
+                  <YAxis stroke="var(--color-slate-500)" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", color: "#0f172a" }}
-                    labelStyle={{ color: "#0f172a", fontWeight: 700 }}
+                    contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
+                    labelStyle={{ color: "var(--color-slate-900)", fontWeight: 700 }}
                   />
                   <Legend />
                   <Line 
@@ -238,12 +238,12 @@ export function WaterPanel() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={qualityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="parameter" stroke="#64748b" />
-                  <YAxis stroke="#64748b" domain={[80, 100]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
+                  <XAxis dataKey="parameter" stroke="var(--color-slate-500)" />
+                  <YAxis stroke="var(--color-slate-500)" domain={[80, 100]} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", color: "#0f172a" }}
-                    labelStyle={{ color: "#0f172a", fontWeight: 700 }}
+                    contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
+                    labelStyle={{ color: "var(--color-slate-900)", fontWeight: 700 }}
                   />
                   <Bar dataKey="value" name="Qualité" radius={[4, 4, 0, 0]}>
                     {qualityData.map((entry, index) => (

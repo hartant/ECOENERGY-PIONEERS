@@ -26,7 +26,7 @@ export function EnergyPanel() {
     { name: "Refroidissement", value: 35, fill: "#06b6d4" },
     { name: "Pompes", value: 25, fill: "#10b981" },
     { name: "Contrôle", value: 20, fill: "#8b5cf6" },
-    { name: "Autres", value: 20, fill: "#64748b" },
+    { name: "Autres", value: 20, fill: "var(--color-slate-500)" },
   ]
 
   return (
@@ -91,11 +91,11 @@ export function EnergyPanel() {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={energyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="time" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
+                <XAxis dataKey="time" stroke="var(--color-slate-500)" />
+                <YAxis stroke="var(--color-slate-500)" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", color: "#0f172a" }}
+                  contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
                   labelStyle={{ color: "#fff" }}
                 />
                 <Legend />

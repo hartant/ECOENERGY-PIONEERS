@@ -180,12 +180,12 @@ export function AnalyticsPanel() {
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={predictionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="time" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} label={{ value: 'MW', angle: -90, position: 'insideLeft', fill: '#64748b' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
+                <XAxis dataKey="time" stroke="var(--color-slate-500)" style={{ fontSize: '12px' }} />
+                <YAxis stroke="var(--color-slate-500)" style={{ fontSize: '12px' }} label={{ value: 'MW', angle: -90, position: 'insideLeft', fill: "var(--color-slate-500)" }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a', borderRadius: '8px' }}
-                  labelStyle={{ color: '#64748b' }}
+                  contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)", borderRadius: '8px' }}
+                  labelStyle={{ color: 'var(--color-slate-500)' }}
                 />
                 <Legend />
                 <Line type="monotone" dataKey="real" stroke="#06b6d4" strokeWidth={2} name="Réel" dot={{ fill: '#06b6d4', r: 4 }} />
@@ -211,9 +211,9 @@ export function AnalyticsPanel() {
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <RadarChart data={radarData}>
-                <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="domain" stroke="#64748b" style={{ fontSize: '11px' }} />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#64748b" style={{ fontSize: '10px' }} />
+                <PolarGrid stroke="var(--color-slate-200)" />
+                <PolarAngleAxis dataKey="domain" stroke="var(--color-slate-500)" style={{ fontSize: '11px' }} />
+                <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="var(--color-slate-500)" style={{ fontSize: '10px' }} />
                 <Radar name="Performance" dataKey="performance" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
               </RadarChart>
             </ResponsiveContainer>

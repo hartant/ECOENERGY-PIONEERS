@@ -161,13 +161,13 @@ export function ReportsPanel() {
           <div className="h-80 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
+                <XAxis dataKey="month" stroke="var(--color-slate-500)" />
                 <YAxis yAxisId="couts" stroke="#3b82f6" tickFormatter={(v: number) => `${(v / 1e6).toFixed(1)}M`} />
                 <YAxis yAxisId="eco" orientation="right" stroke="#f59e0b" tickFormatter={(v: number) => `${Math.round(v / 1000)}K`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", color: "#0f172a" }}
-                  labelStyle={{ color: "#0f172a", fontWeight: 700 }}
+                  contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
+                  labelStyle={{ color: "var(--color-slate-900)", fontWeight: 700 }}
                   formatter={(value: number) => `${value.toLocaleString()} DH`}
                 />
                 <Legend />

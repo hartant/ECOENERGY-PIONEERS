@@ -58,10 +58,10 @@ export function ScadaDashboard() {
     <DashboardProvider>
       <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 text-slate-900">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <div className="flex-1 flex flex-col overflow-hidden w-full">
-          <Header />
+        <div className="flex-1 flex flex-col min-w-0 w-full">
+          <Header activeTab={activeTab} onOpenAlerts={() => setActiveTab("alerts")} />
           <NotificationCenter onNavigateToAlerts={() => setActiveTab("alerts")} />
-          <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6">{renderPanel()}</main>
+          <main className="flex-1 p-3 sm:p-4 md:p-6 max-w-[1600px] w-full mx-auto">{renderPanel()}</main>
         </div>
       </div>
     </DashboardProvider>
