@@ -108,6 +108,8 @@ def test_api_key_required_when_configured(client, monkeypatch):
     monkeypatch.setenv("ECOENERGY_API_KEY", "secret-de-test")
     assert client.get("/api/meta").status_code == 401
     assert client.get("/api/meta", headers={"X-API-Key": "mauvaise"}).status_code == 401
+    # Clé contenant un caractère non ASCII (copié depuis un exemple) : refus propre, pas de plantage
+    assert client.get("/api/meta", headers={"X-API-Key": "3f9a1c…e7".encode()}).status_code == 401
     assert client.get("/api/meta", headers={"X-API-Key": "secret-de-test"}).status_code == 200
     assert client.get("/api/health").status_code == 200  # la sonde de santé reste ouverte
 

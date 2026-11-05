@@ -34,7 +34,8 @@ async def require_api_key(request: Request, call_next):
     path = request.url.path
     if key and path.startswith("/api/") and path != "/api/health" and request.method != "OPTIONS":
         # compare_digest : comparaison en temps constant (évite de deviner la clé caractère par caractère)
-        if not secrets.compare_digest(request.headers.get("x-api-key", ""), key):
+        # On compare des octets : compare_digest plante sur du texte non ASCII (ex. « … » collé).
+        if not secrets.compare_digest(request.headers.get("x-api-key", "").encode(), key.encode()):
             return JSONResponse({"detail": "Clé API manquante ou invalide"}, status_code=401)
     return await call_next(request)
 
