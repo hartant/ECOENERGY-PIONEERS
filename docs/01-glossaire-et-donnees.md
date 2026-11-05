@@ -81,7 +81,7 @@ built from it.
 
 | Sheet | Role | Use it? |
 |---|---|---|
-| **Données** | ~380 columns × 336 days (29/01 → 01/12/2025). The real source. | ✅ main source |
+| **Données** | ~380 columns × 335 days (01/01 → 01/12/2025, no gap). Row 6 is a "selected day" summary, not a day. The real source. | ✅ main source |
 | **R Processe Centrale** | Daily report with **target ranges** ("Cible") per parameter | ✅ alert thresholds |
 | **Rapport TED** | Daily TED report (production WDS, stock, U28 cycles) | ✅ TED panel |
 | Préparation, Calcul, Mois, Indicateurs, Centrale | Formulas / monthly summaries over "Données" | ⚠️ recompute in Python instead |
@@ -96,26 +96,26 @@ built from it.
 
 ## 4. Real data available per dashboard panel
 
-Days filled out of 336:
+Days filled (first exploration, before cleaning; see step 3 for final numbers):
 
 | Dashboard panel | Real columns (examples) | Coverage |
 |---|---|---|
 | **Centrale / Énergie** | Production énergie TA3 (MWh/j), heures d'arrêt TA1/TA2/TA3 | 275 days |
-| | Énergie reçue MC + ONEE by tariff (HP/HPL/HC), montant (DH) | 336 days |
-| | Consommation d'usine | 336 days |
-| | Facture énergétique (DH/T P2O5) | 336 days |
+| | Énergie reçue MC + ONEE by tariff (HP/HPL/HC), montant (DH) | 335 days |
+| | Consommation d'usine | 335 days |
+| | Facture énergétique (DH/T P2O5) | 335 days |
 | **Vapeur** | VHP to turbines, BP soutirage (SR 4,5), condensat TA3 | 250–275 days |
-| **TED / Eau** | Eau dessalée, WDS produced/consumed per destination (centrale, MC, sulfurique, phosphorique) | 266–336 days |
+| **TED / Eau** | Eau dessalée, WDS produced/consumed per destination (centrale, MC, sulfurique, phosphorique) | 266–335 days |
 | | NaOH / H2SO4 consumption, line running hours | 320+ days |
 | **Production** | Production d'ACP (T P2O5) | 335 days |
-| **Stocks** | Fuel‑oil, gas‑oil, WDS stock | 336 days |
-| **Compresseurs** | ZR400 I/II/III | 336 days |
+| **Stocks** | Fuel‑oil, gas‑oil, WDS stock | 335 days |
+| **Compresseurs** | ZR400 I/II/III | 335 days |
 
 **Important real finding** (column "Heur d'arrêt pour Travaux"):
 
 | Turbine | Average stop hours / day | Meaning |
 |---|---|---|
-| GTA1 (TA1) | **24 h on all 336 days** | Out of service all year |
+| GTA1 (TA1) | **24 h on all 335 days** | Out of service all year |
 | GTA2 (TA2) | 22.5 h | Almost always stopped |
 | GTA3 (TA3) | 2 h | The only turbine really producing: avg **188 MWh/day**, max 298 |
 
@@ -123,8 +123,8 @@ The daily report's target is 345.6 MWh/day, so GTA3 alone covers about 54% of it
 average. The dashboard must show this truthfully. It's also a strong point for your
 defense: the plant runs on one turbine out of three.
 
-**Outlier found:** "Facture (DH/T P2O5)" averages ~600 but reaches 145,771 on one day.
-That's a ratio divided by a near‑zero production day. It will be flagged during cleaning.
+**Outlier found:** "Facture (DH/T P2O5)" has a median of ~100 but reaches 145,771 on one day.
+That's a ratio divided by a near‑zero production day. Handled in step 3.
 
 ## 5. Real vs simulated: the rule we follow
 
@@ -142,7 +142,7 @@ The user's request: *"make every unit alive, even with fake data"*. Rule:
    "is this real?". The answer must be visible on screen.
 
 **"Real‑time" in our case = replay.** We have no live sensors (IoT). The backend replays
-the 336 real days as a timeline (e.g. one day = one minute, configurable). Later, a real
+the 335 real days as a timeline (e.g. one day = one minute, configurable). Later, a real
 sensor feed (MQTT / OPC‑UA) could replace the replay without changing the frontend.
 That's the architecture point to explain to the jury.
 
