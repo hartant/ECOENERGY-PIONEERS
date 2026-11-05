@@ -34,6 +34,9 @@ RATES: dict[str, tuple[str, str]] = {
     "wds_production_m3_h":   ("wds_production_m3", "m3/h"),
     "wds_consommation_m3_h": ("wds_consommation_m3", "m3/h"),
     "eau_dessalee_m3_h":     ("eau_dessalee_m3", "m3/h"),
+    "wds_vers_centrale_m3_h":   ("wds_vers_centrale_m3", "m3/h"),
+    "wds_vers_sulfurique_m3_h": ("wds_vers_sulfurique_m3", "m3/h"),
+    "wds_vers_mc_m3_h":         ("wds_vers_mc_m3", "m3/h"),
 }
 
 # Valeurs de la journée affichées telles quelles
