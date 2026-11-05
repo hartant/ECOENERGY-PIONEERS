@@ -125,3 +125,19 @@ def test_packed_database_is_decoded(client, tmp_path, monkeypatch):
     monkeypatch.setenv("ECOENERGY_DB_PACKED", str(packed))
     assert client.get("/api/meta").json()["days"] == 5
     config._unpack.cache_clear()
+
+
+def test_database_from_environment_variable(client, monkeypatch):
+    """Vercel : la base emballée est collée directement dans la variable ECOENERGY_DB_B64."""
+    import base64
+    import gzip
+    import os
+
+    from app import config
+
+    text = base64.b64encode(gzip.compress(open(os.environ["ECOENERGY_DB"], "rb").read())).decode()
+    config._unpack.cache_clear()
+    monkeypatch.delenv("ECOENERGY_DB", raising=False)
+    monkeypatch.setenv("ECOENERGY_DB_B64", text)
+    assert client.get("/api/meta").json()["days"] == 5
+    config._unpack.cache_clear()

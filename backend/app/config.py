@@ -26,17 +26,24 @@ def db_path() -> Path:
     """Base SQLite. La variable d'environnement ECOENERGY_DB permet aux tests
     d'utiliser une petite base de test au lieu des vraies données OCP.
 
-    En hébergement, ECOENERGY_DB_PACKED pointe vers la base « emballée » en texte
-    (voir app/pipeline/pack_db.py) : elle est décodée une fois au démarrage."""
+    En hébergement, la base est fournie « emballée » en texte (voir app/pipeline/pack_db.py)
+    et décodée une fois au démarrage :
+    - ECOENERGY_DB_PACKED = chemin d'un fichier contenant ce texte (Render, Secret Files)
+    - ECOENERGY_DB_B64    = le texte lui-même (Vercel, variable d'environnement)"""
     packed = os.environ.get("ECOENERGY_DB_PACKED")
     if packed:
-        return _unpack(packed)
+        return _unpack(Path(packed).read_text())
+    # Vercel n'a pas de « Secret Files » : le même texte est collé dans une variable d'environnement
+    packed_text = os.environ.get("ECOENERGY_DB_B64")
+    if packed_text:
+        return _unpack(packed_text)
     return Path(os.environ.get("ECOENERGY_DB", DATA_DIR / "processed" / "ecoenergy.db"))
 
 
 @lru_cache(maxsize=1)
-def _unpack(packed: str) -> Path:
-    """Texte base64 d'une base gzip → fichier SQLite temporaire (une seule fois par processus)."""
+def _unpack(text: str) -> Path:
+    """Texte base64 d'une base gzip → fichier SQLite temporaire (une seule fois par processus).
+    /tmp est le seul dossier où l'on peut écrire sur un hébergement « serverless »."""
     dest = Path(tempfile.gettempdir()) / "ecoenergy.db"
-    dest.write_bytes(gzip.decompress(base64.b64decode(Path(packed).read_text())))
+    dest.write_bytes(gzip.decompress(base64.b64decode(text.strip())))
     return dest

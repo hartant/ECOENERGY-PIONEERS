@@ -1,12 +1,13 @@
-"""Emballe la base SQLite en texte pour l'hébergement (Render « Secret Files »).
+"""Emballe la base SQLite en texte pour l'hébergement.
 
-Le formulaire Secret Files de Render n'accepte que du texte collé. La base (binaire) est donc
-compressée (gzip) puis encodée en base64. Le backend la décode au démarrage (config.db_path).
+Une variable d'environnement (Vercel) ou un « Secret File » (Render) n'accepte que du texte.
+La base (binaire) est donc compressée (gzip) puis encodée en base64. Le backend la décode au
+démarrage (config.db_path).
 
 Lancer (après le pipeline) :
     uv run python -m app.pipeline.pack_db
-Puis copier le contenu de data/processed/ecoenergy.db.gz.b64 dans un Secret File Render
-nommé ecoenergy.db.gz.b64.
+Puis coller le contenu de data/processed/ecoenergy.db.gz.b64 dans la variable
+d'environnement ECOENERGY_DB_B64 du projet Vercel du backend (voir docs/05-deploiement.md).
 """
 
 import base64

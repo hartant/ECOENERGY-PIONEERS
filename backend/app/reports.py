@@ -12,6 +12,8 @@ from datetime import datetime
 
 import matplotlib
 
+# matplotlib écrit un cache de polices : en serverless, seul /tmp est inscriptible
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 matplotlib.use("Agg")  # pas d'écran sur un serveur : on dessine en mémoire
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
