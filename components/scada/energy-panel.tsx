@@ -1,248 +1,170 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Zap, TrendingUp, AlertCircle, BarChart3, PieChart, Activity, Gauge, Thermometer, Droplets } from "lucide-react"
-import { LineChart, Line, BarChart, Bar, PieChart as RechartsChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { useState } from "react"
+import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Leaf, Lightbulb } from "lucide-react"
+import { useKpis, useMeta, useSeries } from "@/lib/api"
+import { ApiError } from "./data-source"
+import { ChartTooltip, LegendDot, PageHeader, Panel, PeriodPicker, StatCard, dayLabel, fmt, mean, periodRange, sum, type PeriodId } from "./ui"
+
+// Facteur d'émission du réseau marocain (AIE, 2024) : 0,60 tCO2 par MWh.
+// La vapeur du GTA vient de la chaleur récupérée sur l'unité sulfurique : chaque MWh produit
+// sur place évite d'acheter un MWh au réseau.
+const GRID_TCO2_PER_MWH = 0.6
+
+const FIELDS = [
+  "prod_gta3_mwh", "conso_usine_mwh", "recu_mc_mwh", "recu_onee_mwh", "recu_total_mwh", "recu_montant_dh",
+  "recu_mc_hp_mwh", "recu_mc_hpl_mwh", "recu_mc_hc_mwh", "recu_onee_hp_mwh", "recu_onee_hpl_mwh", "recu_onee_hc_mwh",
+  "dispo_gta1_pct", "dispo_gta2_pct", "dispo_gta3_pct",
+]
+
+const COLORS = { gta3: "var(--color-emerald-500)", mc: "var(--color-amber-500)", onee: "var(--color-orange-400)", conso: "var(--color-sky-600)" }
 
 export function EnergyPanel() {
-  const energyData = [
-    { time: "00:00", production: 42.5, consumption: 38.2, grid: 4.3 },
-    { time: "04:00", production: 38.2, consumption: 35.1, grid: 3.1 },
-    { time: "08:00", production: 45.8, consumption: 42.3, grid: 3.5 },
-    { time: "12:00", production: 48.2, consumption: 45.6, grid: 2.6 },
-    { time: "16:00", production: 46.5, consumption: 44.2, grid: 2.3 },
-    { time: "20:00", production: 44.1, consumption: 41.8, grid: 2.3 },
-    { time: "23:59", production: 42.8, consumption: 39.5, grid: 3.3 },
+  const [period, setPeriod] = useState<PeriodId>("all")
+  const { data: meta, error } = useMeta()
+  const [start, end] = periodRange(period, meta?.first_date, meta?.last_date)
+  const { data: series } = useSeries(FIELDS, start, end)
+  const { data: kpis } = useKpis(start, end)
+
+  if (error) return <ApiError error={error} />
+  const rows = (series?.rows ?? []).map((r) => ({
+    ...r,
+    jour: dayLabel(r.date),
+    achats: r.recu_mc_mwh === null && r.recu_onee_mwh === null ? null : (r.recu_mc_mwh ?? 0) + (r.recu_onee_mwh ?? 0),
+  }))
+  const k = kpis?.groups.electricite
+  const prod = k?.production.value ?? null
+  const achatsMc = k?.achats_mc.value ?? null
+  const achatsOnee = k?.achats_onee.value ?? null
+  const cout = k?.cout_achats.value ?? null
+
+  // Prix moyen réellement payé = coût total / MWh reçus (sur les jours où les deux sont connus)
+  const priced = (series?.rows ?? []).filter((r) => r.recu_montant_dh !== null && r.recu_total_mwh)
+  const prix = priced.length ? (sum(priced, "recu_montant_dh") ?? 0) / (sum(priced, "recu_total_mwh") ?? 1) : null
+
+  const origine = [
+    { name: "GTA3 (production propre)", value: prod ?? 0, fill: COLORS.gta3 },
+    { name: "Maroc Chimie", value: achatsMc ?? 0, fill: COLORS.mc },
+    { name: "Réseau ONEE", value: achatsOnee ?? 0, fill: COLORS.onee },
+  ]
+  const totalOrigine = origine.reduce((a, b) => a + b.value, 0)
+
+  const tranches = [
+    { name: "Heures de pointe", mc: sum(rows, "recu_mc_hp_mwh"), onee: sum(rows, "recu_onee_hp_mwh") },
+    { name: "Heures pleines", mc: sum(rows, "recu_mc_hpl_mwh"), onee: sum(rows, "recu_onee_hpl_mwh") },
+    { name: "Heures creuses", mc: sum(rows, "recu_mc_hc_mwh"), onee: sum(rows, "recu_onee_hc_mwh") },
   ]
 
-  const sourceData = [
-    { name: "Centrale Thermique", value: 65, fill: "#f59e0b" },
-    { name: "Unité Sulfurique", value: 20, fill: "#ef4444" },
-    { name: "CAP U/V/W", value: 15, fill: "#3b82f6" },
-  ]
-
-  const consumptionData = [
-    { name: "Refroidissement", value: 35, fill: "#06b6d4" },
-    { name: "Pompes", value: 25, fill: "#10b981" },
-    { name: "Contrôle", value: 20, fill: "#8b5cf6" },
-    { name: "Autres", value: 20, fill: "var(--color-slate-500)" },
-  ]
+  const dispo = [1, 2, 3].map((n) => ({ name: `GTA${n}`, value: mean(rows, `dispo_gta${n}_pct`) ?? 0 }))
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Gestion Énergétique</h2>
-        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">En ligne</Badge>
+    <div className="space-y-4">
+      <PageHeader title="Énergie électrique" subtitle={`Données réelles · ${start ?? "…"} → ${end ?? "…"} · ${rows.length} jours`}>
+        <PeriodPicker value={period} onChange={setPeriod} />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard label="Production GTA3" value={fmt(prod, 0)} unit="MWh" accent="text-emerald-600" />
+        <StatCard label="Consommation du site" value={fmt(k?.consommation.value, 0)} unit="MWh" accent="text-sky-700" />
+        <StatCard label="Électricité achetée" value={fmt((achatsMc ?? 0) + (achatsOnee ?? 0), 0)} unit="MWh" accent="text-amber-600" hint={`MC ${fmt(achatsMc, 0)} · ONEE ${fmt(achatsOnee, 0)}`} />
+        <StatCard label="Coût des achats" value={fmt(cout === null ? null : cout / 1e6, 2)} unit="M DH" accent="text-amber-700" />
+        <StatCard label="Prix moyen payé" value={fmt(prix, 0)} unit="DH/MWh" hint="Tarif ONEE THT : 481 – 745 DH/MWh" />
+        <StatCard label="Autonomie électrique" value={fmt(k?.taux_couverture.value, 1)} unit="%" accent="text-violet-600" hint={`Objectif GTA atteint à ${fmt(k?.realisation_objectif.value, 0)} %`} />
       </div>
 
-      {/* Top KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-yellow-50 to-white border-2 border-yellow-200 shadow-lg shadow-yellow-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Production</p>
-              <Zap className="w-5 h-5 text-yellow-700" />
-            </div>
-            <p className="text-3xl font-bold text-yellow-700">45.68 MW</p>
-          </CardContent>
-        </Card>
+      <Panel title="Production, achats et consommation" subtitle="MWh par jour · production + achats = consommation">
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" vertical={false} />
+              <XAxis dataKey="jour" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} minTickGap={28} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={56} />
+              <Tooltip content={<ChartTooltip unit="MWh" />} />
+              <Area type="monotone" dataKey="prod_gta3_mwh" name="Production GTA3" stackId="s" stroke="var(--color-emerald-600)" fill={COLORS.gta3} fillOpacity={0.25} isAnimationActive={false} />
+              <Area type="monotone" dataKey="achats" name="Achats (MC + ONEE)" stackId="s" stroke="var(--color-amber-600)" fill={COLORS.mc} fillOpacity={0.2} isAnimationActive={false} />
+              <Line type="monotone" dataKey="conso_usine_mwh" name="Consommation" stroke={COLORS.conso} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-600">
+          <LegendDot className="bg-emerald-500" label="Production GTA3" />
+          <LegendDot className="bg-amber-500" label="Achats (MC + ONEE)" />
+          <LegendDot className="bg-sky-600" label="Consommation du site" />
+        </div>
+      </Panel>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 shadow-lg shadow-blue-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Consommation</p>
-              <Activity className="w-5 h-5 text-blue-700" />
-            </div>
-            <p className="text-3xl font-bold text-blue-700">42.15 MW</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-emerald-50 to-white border-2 border-emerald-200 shadow-lg shadow-emerald-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Excédent Export</p>
-              <TrendingUp className="w-5 h-5 text-emerald-700" />
-            </div>
-            <p className="text-3xl font-bold text-emerald-700">3.53 MW</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-white border-2 border-purple-200 shadow-lg shadow-purple-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Efficacité</p>
-              <Gauge className="w-5 h-5 text-purple-700" />
-            </div>
-            <p className="text-3xl font-bold text-purple-700">93.2%</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Production vs Consumption Chart */}
-      <Card className="bg-white border-slate-200">
-        <CardHeader>
-          <CardTitle className="text-slate-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-cyan-700" />
-            Production vs Consommation (24h)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel title="Origine de l'électricité consommée" subtitle="Part de chaque source sur la période">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={energyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
-                <XAxis dataKey="time" stroke="var(--color-slate-500)" />
-                <YAxis stroke="var(--color-slate-500)" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
-                  labelStyle={{ color: "#fff" }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="production" stroke="#f59e0b" strokeWidth={2} name="Production" />
-                <Line type="monotone" dataKey="consumption" stroke="#3b82f6" strokeWidth={2} name="Consommation" />
-                <Line type="monotone" dataKey="grid" stroke="#10b981" strokeWidth={2} name="Export" />
-              </LineChart>
+              <PieChart>
+                <Pie data={origine} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2} isAnimationActive={false}>
+                  {origine.map((o) => (
+                    <Cell key={o.name} fill={o.fill} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v) => `${fmt(Number(v), 0)} MWh (${fmt((Number(v) / (totalOrigine || 1)) * 100, 1)} %)`} />
+                <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+              </PieChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {/* Sources and Consumption Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Energy Sources */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-slate-900 flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-amber-700" />
-              Sources d'Énergie
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsChart>
-                  <Pie data={sourceData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}%`} outerRadius={100} fill="#8884d8" dataKey="value">
-                    {sourceData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Energy Consumption */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-slate-900 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-cyan-700" />
-              Répartition Consommation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsChart>
-                  <Pie data={consumptionData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}%`} outerRadius={100} fill="#8884d8" dataKey="value">
-                    {consumptionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <Panel title="Achats par tranche horaire ONEE" subtitle="MWh achetés · la pointe est la tranche la plus chère">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={tranches} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={56} />
+                <Tooltip content={<ChartTooltip unit="MWh" />} />
+                <Bar dataKey="mc" name="Maroc Chimie" stackId="t" fill={COLORS.mc} isAnimationActive={false} />
+                <Bar dataKey="onee" name="Réseau ONEE" stackId="t" fill={COLORS.onee} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
       </div>
 
-      {/* Puissance Actuelle */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-white border-slate-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-slate-600 text-sm">Centrale Thermique</span>
-              <Thermometer className="w-5 h-5 text-orange-700" />
-            </div>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-600">Puissance</span>
-                  <span className="text-slate-900 font-bold">29.7 MW</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel title="Disponibilité des turbo-alternateurs" subtitle="Moyenne sur la période · heures de marche / 24 h">
+          <ul className="space-y-3 pt-1">
+            {dispo.map((d) => (
+              <li key={d.name}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-medium text-slate-700">{d.name}</span>
+                  <span className="tabular font-semibold text-slate-900">{fmt(d.value, 1)} %</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style={{ width: "65%" }} />
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className={d.value > 50 ? "h-full bg-emerald-500" : "h-full bg-slate-400"} style={{ width: `${d.value}%` }} />
                 </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600">Température: <span className="text-slate-900 font-bold">417°C</span></p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-slate-500">GTA1 est hors service toute l'année et GTA2 presque toute l'année : le site dépend d'une seule turbine.</p>
+        </Panel>
 
-        <Card className="bg-white border-slate-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-slate-600 text-sm">Unité Sulfurique</span>
-              <Zap className="w-5 h-5 text-yellow-700" />
+        <Panel title="Ce que vaut 1 MW de production en plus" subtitle="Calculé avec le prix réellement payé sur la période">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-slate-700">
+                1 MW produit en continu par le GTA évite d'acheter <b>24 MWh/jour</b>, soit{" "}
+                <b className="text-amber-700">{fmt(prix === null ? null : prix * 24, 0)} DH/jour</b> et{" "}
+                <b className="text-amber-700">{fmt(prix === null ? null : (prix * 24 * 365) / 1e6, 2)} M DH/an</b>.
+              </p>
             </div>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-600">Puissance</span>
-                  <span className="text-slate-900 font-bold">9.1 MW</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div className="bg-gradient-to-r from-yellow-500 to-amber-500 h-2 rounded-full" style={{ width: "20%" }} />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600">Export VHP: <span className="text-slate-900 font-bold">46 T/h</span></p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-slate-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-slate-600 text-sm">CAP U/V/W</span>
-              <Droplets className="w-5 h-5 text-blue-700" />
-            </div>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-600">Puissance</span>
-                  <span className="text-slate-900 font-bold">6.88 MW</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full" style={{ width: "15%" }} />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600">Charge moy: <span className="text-slate-900 font-bold">115%</span></p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Alerts */}
-      <Card className="bg-amber-50 border-2 border-amber-200">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-700 mt-1" />
-            <div>
-              <p className="text-amber-700 font-semibold mb-1">⚠️ Consommation Élevée Prévue</p>
-              <p className="text-sm text-amber-700">La consommation devrait augmenter de 8% dans les 2 prochaines heures. Vérifiez la capacité des circuits.</p>
+            <div className="flex items-start gap-3">
+              <Leaf className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-slate-700">
+                La production du GTA sur la période a évité environ{" "}
+                <b className="text-emerald-700">{fmt(prod === null ? null : prod * GRID_TCO2_PER_MWH, 0)} t de CO₂</b> (réseau marocain : 0,60 tCO₂/MWh, AIE).
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
+      </div>
     </div>
   )
 }

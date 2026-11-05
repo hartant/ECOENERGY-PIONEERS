@@ -5,6 +5,7 @@ import { Activity, Droplets, Factory, Flame, Gauge, PlugZap, Wind, Zap } from "l
 import { useDashboard } from "@/context/dashboard-context"
 import { fmt, shiftDate, useLive, useSeries, type Measure, type Source } from "@/lib/api"
 import { ApiError, ReplayChip, SimBadge } from "./data-source"
+import { ChartTooltip, KpiTile, LegendDot, Mini, Panel, StatusPill, type UnitStatus } from "./ui"
 import { cn } from "@/lib/utils"
 
 /* ------------------------------------------------------------------ */
@@ -15,7 +16,6 @@ import { cn } from "@/lib/utils"
 const OBJECTIF_MW = 345.6 / 24
 const HISTORY_FIELDS = ["prod_gta3_mwh", "conso_usine_mwh", "recu_mc_mwh", "recu_onee_mwh", "vhp_gta3_t", "wds_production_m3", "cs_vhp_t_par_mwh"]
 
-type UnitStatus = "running" | "stopped" | "warning" | "alarm"
 type Cell = { text: string; source?: Source; bad?: boolean }
 
 export function ProcessDiagram() {
@@ -183,8 +183,8 @@ export function ProcessDiagram() {
                 <XAxis dataKey="jour" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} minTickGap={24} />
                 <YAxis tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={56} />
                 <Tooltip content={<ChartTooltip unit="MWh" />} />
-                <Area type="monotone" dataKey="prod_gta3_mwh" name="Production GTA3" stackId="s" stroke="var(--color-emerald-600)" fill="var(--color-emerald-500)" fillOpacity={0.25} isAnimationActive={false} connectNulls />
-                <Area type="monotone" dataKey="achats" name="Achats (MC + ONEE)" stackId="s" stroke="var(--color-amber-600)" fill="var(--color-amber-500)" fillOpacity={0.2} isAnimationActive={false} connectNulls />
+                <Area type="monotone" dataKey="prod_gta3_mwh" name="Production GTA3" stackId="s" stroke="var(--color-emerald-600)" fill="var(--color-emerald-500)" fillOpacity={0.25} isAnimationActive={false} />
+                <Area type="monotone" dataKey="achats" name="Achats (MC + ONEE)" stackId="s" stroke="var(--color-amber-600)" fill="var(--color-amber-500)" fillOpacity={0.2} isAnimationActive={false} />
                 <Line type="monotone" dataKey="conso_usine_mwh" name="Consommation" stroke="var(--color-sky-600)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -334,166 +334,6 @@ export function ProcessDiagram() {
           </div>
         </Panel>
       </div>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* UI pieces                                                           */
-/* ------------------------------------------------------------------ */
-
-const ACCENT: Record<string, { icon: string; line: string; bg: string }> = {
-  emerald: { icon: "text-emerald-600", line: "var(--color-emerald-500)", bg: "bg-emerald-50" },
-  sky: { icon: "text-sky-600", line: "var(--color-sky-500)", bg: "bg-sky-50" },
-  amber: { icon: "text-amber-600", line: "var(--color-amber-500)", bg: "bg-amber-50" },
-  violet: { icon: "text-violet-600", line: "var(--color-violet-500)", bg: "bg-violet-50" },
-  orange: { icon: "text-orange-600", line: "var(--color-orange-500)", bg: "bg-orange-50" },
-  cyan: { icon: "text-cyan-600", line: "var(--color-cyan-500)", bg: "bg-cyan-50" },
-  red: { icon: "text-red-600", line: "var(--color-red-500)", bg: "bg-red-50" },
-}
-
-function KpiTile({
-  label,
-  value,
-  unit,
-  source,
-  hint,
-  icon: Icon,
-  color,
-  data,
-  delta,
-}: {
-  label: string
-  value: string
-  unit: string
-  source?: Source
-  hint?: string
-  icon: typeof Zap
-  color: string
-  data: number[]
-  delta: number | null
-}) {
-  const a = ACCENT[color]
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-500">
-          {label}
-          <SimBadge source={source} />
-        </span>
-        <span className={cn("w-7 h-7 rounded-lg flex items-center justify-center", a.bg)}>
-          <Icon className={cn("w-4 h-4", a.icon)} />
-        </span>
-      </div>
-      <p className="mt-1.5 text-2xl font-bold text-slate-900 tabular leading-none">
-        {value}
-        <span className="ml-1 text-sm font-medium text-slate-500">{unit}</span>
-      </p>
-      <div className="mt-2 flex items-end justify-between gap-2">
-        <span className="text-[11px] font-medium tabular text-slate-500" title="Variation par rapport à la veille">
-          {hint ?? (delta === null ? "—" : `${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta).toFixed(1)} % vs veille`)}
-        </span>
-        <Sparkline data={data} color={a.line} />
-      </div>
-    </div>
-  )
-}
-
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (data.length < 2) return <div className="h-7 w-24" />
-  const w = 96
-  const h = 28
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const span = max - min || 1
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - 2 - ((v - min) / span) * (h - 4)}`)
-  return (
-    <svg width={w} height={h} className="overflow-visible">
-      <polyline points={pts.join(" ")} fill="none" style={{ stroke: color }} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={w} cy={pts[pts.length - 1].split(",")[1]} r={2.5} style={{ fill: color }} />
-    </svg>
-  )
-}
-
-function Panel({
-  title,
-  subtitle,
-  children,
-  className,
-  padded = true,
-}: {
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-  className?: string
-  padded?: boolean
-}) {
-  return (
-    <section className={cn("rounded-xl border border-slate-200 bg-white shadow-sm", className)}>
-      <div className="px-4 pt-3.5 pb-2">
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
-      </div>
-      <div className={padded ? "px-4 pb-4" : "pb-1"}>{children}</div>
-    </section>
-  )
-}
-
-function StatusPill({ status }: { status: UnitStatus }) {
-  const map: Record<UnitStatus, [string, string, string]> = {
-    running: ["En marche", "bg-emerald-100 text-emerald-700", "bg-emerald-500"],
-    stopped: ["À l'arrêt", "bg-slate-100 text-slate-600", "bg-slate-400"],
-    warning: ["Surcharge", "bg-amber-100 text-amber-700", "bg-amber-500"],
-    alarm: ["Alarme", "bg-red-100 text-red-700", "bg-red-500 animate-pulse"],
-  }
-  const [label, cls, dot] = map[status]
-  return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold", cls)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
-      {label}
-    </span>
-  )
-}
-
-function Mini({ label, m, accent }: { label: string; m?: Measure; accent: string }) {
-  return (
-    <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
-      <p className="text-[11px] font-medium text-slate-500">
-        {label}
-        <SimBadge source={m?.source} />
-      </p>
-      <p className={cn("text-lg font-bold tabular", accent)}>
-        {fmt(m?.value)} <span className="text-xs font-medium text-slate-500">{m?.unit}</span>
-      </p>
-    </div>
-  )
-}
-
-function LegendDot({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cn("w-2.5 h-2.5 rounded-full", className)} />
-      {label}
-    </span>
-  )
-}
-
-function ChartTooltip({ active, payload, label, unit }: { active?: boolean; payload?: { name: string; value: number | null; color: string }[]; label?: string; unit: string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-md text-xs">
-      <p className="font-semibold text-slate-900 mb-1">{label}</p>
-      {payload.map((p) => (
-        <p key={p.name} className="flex items-center justify-between gap-4 text-slate-600">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-            {p.name}
-          </span>
-          <span className="font-medium text-slate-900 tabular">
-            {fmt(p.value, 0)} {unit}
-          </span>
-        </p>
-      ))}
     </div>
   )
 }

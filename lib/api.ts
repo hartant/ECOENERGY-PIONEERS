@@ -43,6 +43,21 @@ export interface KpiReport {
   groups: Record<string, Record<string, Kpi>>
 }
 
+export interface ColumnMeta {
+  name: string
+  unit: string
+  group: string
+  description: string
+  source: string
+}
+
+export interface Meta {
+  first_date: string
+  last_date: string
+  days: number
+  columns: ColumnMeta[]
+}
+
 export interface Threshold {
   key: string
   label: string
@@ -78,7 +93,11 @@ export function useSeries(fields: string[], start?: string, end?: string) {
 }
 
 export function useKpis(start?: string, end?: string) {
-  return useSWR<KpiReport>(`/api/kpis${query({ start, end })}`, fetcher)
+  return useSWR<KpiReport>(start && end ? `/api/kpis${query({ start, end })}` : null, fetcher, { keepPreviousData: true })
+}
+
+export function useMeta() {
+  return useSWR<Meta>("/api/meta", fetcher)
 }
 
 export function useThresholds() {
