@@ -8,7 +8,7 @@ Documentation interactive : http://localhost:8000/docs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import days, kpis, live, meta
+from app.routers import days, kpis, live, meta, simulate
 
 app = FastAPI(
     title="EcoEnergy Pioneers API",
@@ -29,6 +29,7 @@ app.include_router(meta.router)
 app.include_router(days.router)
 app.include_router(kpis.router)
 app.include_router(live.router)
+app.include_router(simulate.router)
 
 
 @app.get("/api/health")
