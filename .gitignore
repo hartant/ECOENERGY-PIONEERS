@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python backend
+backend/.venv/
+__pycache__/
+*.pyc
+
+# données OCP réelles : confidentielles, jamais sur GitHub (repo public)
+backend/data/raw/
+backend/data/processed/

@@ -1,0 +1,14 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "EcoEnergy Pioneers - API de supervision du site Utilités (OCP)"
+authors = [
+    { name = "hartant", email = "simobimo3502@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.0",
+    "openpyxl>=3.1.5",
+    "pandas>=3.1.1",
+    "uvicorn[standard]>=0.54.0",
+]
