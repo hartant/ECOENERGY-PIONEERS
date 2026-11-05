@@ -33,13 +33,18 @@ THRESHOLDS: list[Threshold] = [
 OBJECTIF_PROD_MWH = 345.6
 
 BY_COLUMN = {t.column: t for t in THRESHOLDS if t.column}
+BY_KEY = {t.key: t for t in THRESHOLDS}
 
 
-def status(column: str, value: float | None) -> str | None:
-    """« ok » / « hors_cible » si la colonne a une plage cible, sinon None."""
-    t = BY_COLUMN.get(column)
+def check(t: Threshold | None, value: float | None) -> str | None:
+    """« ok » / « hors_cible » par rapport à la plage t, ou None s'il n'y a rien à comparer."""
     if t is None or value is None:
         return None
     if (t.min is not None and value < t.min) or (t.max is not None and value > t.max):
         return "hors_cible"
     return "ok"
+
+
+def status(column: str, value: float | None) -> str | None:
+    """État d'une colonne de la table daily (si elle a une plage cible)."""
+    return check(BY_COLUMN.get(column), value)

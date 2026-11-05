@@ -62,3 +62,21 @@ def test_kpis(client):
 
 def test_reversed_period_is_rejected(client):
     assert client.get("/api/kpis", params={"start": "2025-01-05", "end": "2025-01-01"}).status_code == 422
+
+
+def test_live_converts_daily_totals_to_rates(client):
+    values = client.get("/api/live", params={"day": "2025-01-02"}).json()["values"]
+    assert values["prod_gta3_mw"] == {"value": round(250 / 24, 2), "unit": "MW", "source": "real", "status": None}
+
+
+def test_live_simulated_sensors_are_labelled_and_in_range(client):
+    body = client.get("/api/live", params={"day": "2025-01-02"}).json()
+    assert body["replay"] == body["replay"] | {"date": "2025-01-02", "pinned": True, "days": 5}
+    pression = body["values"]["pression_vhp_bar"]
+    assert pression["source"] == "simulated"
+    assert 45 < pression["value"] < 63  # autour de la plage cible 50–58 bar
+
+
+def test_live_without_day_replays_a_known_date(client):
+    replay = client.get("/api/live").json()["replay"]
+    assert replay["date"].startswith("2025-01-0") and not replay["pinned"]

@@ -44,6 +44,20 @@ class DayDetail(BaseModel):
     groups: dict[str, dict[str, Measure]]
 
 
+class Replay(BaseModel):
+    date: str          # jour réel rejoué
+    hour: float        # heure simulée dans ce jour (0–24)
+    day_index: int
+    days: int
+    seconds_per_day: float
+    pinned: bool       # True si le jour a été imposé avec ?date=
+
+
+class Live(BaseModel):
+    replay: Replay
+    values: dict[str, Measure]
+
+
 class Kpi(BaseModel):
     label: str
     value: float | None
