@@ -1,0 +1,64 @@
+"""Tests de l'API sur une petite base de test (5 jours fabriqués).
+
+TestClient appelle l'API comme le ferait le navigateur, sans lancer de serveur.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.pipeline.load_excel import clean, columns_meta, derive, load
+from tests.factories import make_days
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    # Jour 3 : vapeur anormale → consommation spécifique 2000/250 = 8 t/MWh (cible 6,8–7,5)
+    df, issues = clean(make_days(vhp_gta3_t=[1750, 1750, 2000, 1750, 1750]))
+    db = tmp_path / "test.db"
+    load(derive(df), columns_meta(), issues, db)
+    monkeypatch.setenv("ECOENERGY_DB", str(db))
+    return TestClient(app)
+
+
+def test_meta(client):
+    body = client.get("/api/meta").json()
+    assert (body["first_date"], body["last_date"], body["days"]) == ("2025-01-01", "2025-01-05", 5)
+    prod = next(c for c in body["columns"] if c["name"] == "prod_gta3_mwh")
+    assert (prod["unit"], prod["source"]) == ("MWh/j", "Données!JB")
+
+
+def test_series_with_selected_fields(client):
+    body = client.get("/api/days", params={"start": "2025-01-02", "end": "2025-01-03",
+                                           "fields": "prod_gta3_mwh,cs_vhp_t_par_mwh"}).json()
+    assert body["units"] == {"prod_gta3_mwh": "MWh/j", "cs_vhp_t_par_mwh": "t/MWh"}
+    assert [r["date"] for r in body["rows"]] == ["2025-01-02", "2025-01-03"]
+    assert body["rows"][1]["cs_vhp_t_par_mwh"] == 8.0
+
+
+def test_unknown_field_is_rejected(client):
+    r = client.get("/api/days", params={"fields": "prod_gta3_mwh,1;DROP TABLE daily"})
+    assert r.status_code == 422
+    assert client.get("/api/meta").status_code == 200  # la table existe toujours
+
+
+def test_day_detail_marks_source_and_status(client):
+    vapeur = client.get("/api/days/2025-01-03").json()["groups"]["vapeur"]
+    assert vapeur["vhp_gta3_t"]["source"] == "real"
+    assert vapeur["cs_vhp_t_par_mwh"] == {"value": 8.0, "unit": "t/MWh",
+                                          "source": "computed", "status": "hors_cible"}
+
+
+def test_unknown_day_is_404(client):
+    assert client.get("/api/days/2024-01-01").status_code == 404
+
+
+def test_kpis(client):
+    groups = client.get("/api/kpis").json()["groups"]
+    assert groups["electricite"]["production"]["value"] == 1250.0       # 5 × 250
+    assert groups["electricite"]["taux_couverture"]["value"] == 50.0    # 250 / 500
+    assert groups["vapeur"]["jours_cs_dans_cible"]["value"] == 80.0     # 4 jours sur 5
+
+
+def test_reversed_period_is_rejected(client):
+    assert client.get("/api/kpis", params={"start": "2025-01-05", "end": "2025-01-01"}).status_code == 422

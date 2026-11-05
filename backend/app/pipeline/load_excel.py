@@ -13,6 +13,7 @@ Lancer :
 
 import sqlite3
 import sys
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +22,7 @@ import openpyxl
 import pandas as pd
 from openpyxl.utils import column_index_from_string
 
+from app.config import RAW_DIR, db_path
 from app.pipeline.columns import (
     COLUMNS,
     DATE_LETTER,
@@ -29,10 +31,6 @@ from app.pipeline.columns import (
     HEADER_ROWS,
     SHEET,
 )
-
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-RAW_DIR = DATA_DIR / "raw"
-DB_PATH = DATA_DIR / "processed" / "ecoenergy.db"
 
 # En dessous de 20 % de la production ACP médiane, un ratio « par tonne » n'a plus de sens.
 MIN_ACP_FOR_RATIO = 0.2
@@ -164,9 +162,10 @@ def columns_meta() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def load(df: pd.DataFrame, meta: pd.DataFrame, issues: pd.DataFrame) -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(DB_PATH) as con:
+def load(df: pd.DataFrame, meta: pd.DataFrame, issues: pd.DataFrame, path: Path | None = None) -> None:
+    path = path or db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(path)) as con, con:
         df.to_sql("daily", con, if_exists="replace", index=False)
         meta.to_sql("columns_meta", con, if_exists="replace", index=False)
         issues.to_sql("quality_issues", con, if_exists="replace", index=False)
@@ -182,7 +181,7 @@ def report(df: pd.DataFrame, issues: pd.DataFrame) -> None:
     for name in df.columns[1:]:
         n = df[name].notna().sum()
         print(f"  {name:28} {n:4} / {len(df)}")
-    print(f"\nBase écrite : {DB_PATH}")
+    print(f"\nBase écrite : {db_path()}")
 
 
 def main() -> None:
