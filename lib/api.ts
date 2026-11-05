@@ -7,7 +7,17 @@
 
 import useSWR from "swr"
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+// Par défaut on passe par le relais Next.js (app/api/backend/[...path]/route.ts) qui ajoute la
+// clé secrète : le navigateur ne connaît jamais l'adresse réelle du backend.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend"
+
+/** Adresse complète d'un chemin d'API. On part de `location.origin`, qui ne contient jamais
+ * d'identifiants : si la page a été ouverte via http://user:mdp@hôte, le navigateur refuse
+ * les requêtes vers une adresse relative (elle hériterait des identifiants). */
+export function apiUrl(path: string) {
+  const base = API_URL.startsWith("/") && typeof window !== "undefined" ? window.location.origin + API_URL : API_URL
+  return `${base}${path}`
+}
 
 export type Source = "real" | "computed" | "simulated"
 export type Status = "ok" | "hors_cible" | null
@@ -68,7 +78,7 @@ export interface Threshold {
 }
 
 async function fetcher<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`)
+  const res = await fetch(apiUrl(path))
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     throw new Error(body?.detail ?? `HTTP ${res.status}`)
@@ -169,7 +179,7 @@ export function useSimModel() {
 }
 
 async function postSimulation([, inputs]: [string, SimInputs]): Promise<SimRun> {
-  const res = await fetch(`${API_URL}/api/simulate`, {
+  const res = await fetch(apiUrl("/api/simulate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(inputs),

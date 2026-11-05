@@ -1,5 +1,6 @@
 "use client"
 
+import { WipBanner } from "./data-source"
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Brain, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Zap, DollarSign, Clock, ChevronDown, ChevronUp, Target, Activity } from "lucide-react"
@@ -119,6 +120,7 @@ export function AnalyticsPanel() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-900 mb-6">Intelligence Artificielle - Analytiques</h2>
+      <WipBanner>Les chiffres de cette page ne sont pas encore calculés à partir des données réelles. Les prédictions et la détection d'anomalies (modèles entraînés sur les 335 jours de 2025) sont la prochaine étape du projet.</WipBanner>
 
       {/* Top KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

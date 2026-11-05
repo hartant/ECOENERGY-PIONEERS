@@ -3,7 +3,7 @@
 import { useState } from "react"
 import useSWR from "swr"
 import { BarChart3, Droplets, FileSpreadsheet, FileText, Flame, ShieldCheck, Zap } from "lucide-react"
-import { API_URL, useKpis, useMeta } from "@/lib/api"
+import { apiUrl, useKpis, useMeta } from "@/lib/api"
 import { ApiError } from "./data-source"
 import { PageHeader, PeriodPicker, StatCard, fmt, periodRange, type PeriodId } from "./ui"
 
@@ -22,7 +22,7 @@ interface ReportInfo {
 
 export function ReportsPanel() {
   const { data: meta, error } = useMeta()
-  const { data: reports } = useSWR<ReportInfo[]>(`${API_URL}/api/reports`, (url: string) => fetch(url).then((r) => r.json()))
+  const { data: reports } = useSWR<ReportInfo[]>(apiUrl("/api/reports"), (url: string) => fetch(url).then((r) => r.json()))
   const [period, setPeriod] = useState<PeriodId | "custom">("all")
   const [custom, setCustom] = useState<[string, string] | null>(null)
 
@@ -31,7 +31,7 @@ export function ReportsPanel() {
 
   if (error) return <ApiError error={error} />
   const e = kpis?.groups.electricite
-  const url = (id: string, fmtExt: "pdf" | "xlsx") => `${API_URL}/api/reports/${id}.${fmtExt}?start=${start}&end=${end}`
+  const url = (id: string, fmtExt: "pdf" | "xlsx") => apiUrl(`/api/reports/${id}.${fmtExt}?start=${start}&end=${end}`)
 
   const setDate = (i: 0 | 1, v: string) => {
     const next: [string, string] = [start ?? "", end ?? ""]

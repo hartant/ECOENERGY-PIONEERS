@@ -1,5 +1,6 @@
 "use client"
 
+import { WipBanner } from "./data-source"
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -390,6 +391,7 @@ export function AlertsPanel() {
 
   return (
     <div className="space-y-6">
+      <WipBanner>Les alertes listées ici sont des exemples. La détection automatique sur les données réelles (cibles du rapport journalier + apprentissage automatique) et l'envoi d'emails associés sont la prochaine étape du projet.</WipBanner>
       {/* Header with Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-2xl font-bold text-slate-900">Alertes</h2>

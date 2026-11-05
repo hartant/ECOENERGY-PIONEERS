@@ -102,3 +102,26 @@ def test_reports_catalog_and_downloads(client):
 
 def test_unknown_report_is_404(client):
     assert client.get("/api/reports/nope.pdf").status_code == 404
+
+
+def test_api_key_required_when_configured(client, monkeypatch):
+    monkeypatch.setenv("ECOENERGY_API_KEY", "secret-de-test")
+    assert client.get("/api/meta").status_code == 401
+    assert client.get("/api/meta", headers={"X-API-Key": "mauvaise"}).status_code == 401
+    assert client.get("/api/meta", headers={"X-API-Key": "secret-de-test"}).status_code == 200
+    assert client.get("/api/health").status_code == 200  # la sonde de santé reste ouverte
+
+
+def test_packed_database_is_decoded(client, tmp_path, monkeypatch):
+    import base64
+    import gzip
+    import os
+
+    from app import config
+
+    packed = tmp_path / "db.gz.b64"
+    packed.write_text(base64.b64encode(gzip.compress(open(os.environ["ECOENERGY_DB"], "rb").read())).decode())
+    config._unpack.cache_clear()
+    monkeypatch.setenv("ECOENERGY_DB_PACKED", str(packed))
+    assert client.get("/api/meta").json()["days"] == 5
+    config._unpack.cache_clear()

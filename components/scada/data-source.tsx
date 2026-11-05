@@ -38,15 +38,35 @@ export function ReplayChip({ replay }: { replay: Live["replay"] }) {
 
 /** Message clair quand l'API Python ne répond pas. */
 export function ApiError({ error }: { error: Error }) {
+  const isLocal = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 flex gap-3">
       <AlertTriangle className="w-5 h-5 shrink-0" />
       <div>
         <p className="font-semibold">Données indisponibles : l'API ne répond pas</p>
         <p className="mt-1 text-amber-700">
-          {error.message}. Lancer le backend :{" "}
-          <code className="rounded bg-amber-100 px-1">cd backend && uv run uvicorn app.main:app --reload --port 8000</code>
+          {error.message}.
+          {isLocal ? (
+            <>
+              {" "}Lancer le backend : <code className="rounded bg-amber-100 px-1">cd backend && uv run uvicorn app.main:app --reload --port 8000</code>
+            </>
+          ) : (
+            " Recharger la page dans une minute."
+          )}
         </p>
+      </div>
+    </div>
+  )
+}
+
+/** Bandeau des pages dont le contenu est encore une démonstration (étape IA à venir). */
+export function WipBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800 flex gap-3">
+      <AlertTriangle className="w-5 h-5 shrink-0 text-violet-500" />
+      <div>
+        <p className="font-semibold">En cours de développement : contenu de démonstration</p>
+        <p className="mt-0.5 text-violet-700">{children}</p>
       </div>
     </div>
   )

@@ -5,9 +5,13 @@ Lancer en développement :
 Documentation interactive : http://localhost:8000/docs
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import secrets
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.config import ALLOWED_ORIGINS, api_key
 from app.routers import days, kpis, live, meta, reports, simulate
 
 app = FastAPI(
@@ -16,11 +20,30 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """En production, seules les requêtes portant la clé secrète accèdent aux données.
+
+    Le navigateur ne parle jamais directement à cette API : il passe par le serveur Next.js
+    (protégé par mot de passe), qui ajoute l'en-tête X-API-Key. Quelqu'un qui trouverait l'URL
+    de l'API ne pourrait donc rien lire.
+    """
+    key = api_key()
+    path = request.url.path
+    if key and path.startswith("/api/") and path != "/api/health" and request.method != "OPTIONS":
+        # compare_digest : comparaison en temps constant (évite de deviner la clé caractère par caractère)
+        if not secrets.compare_digest(request.headers.get("x-api-key", ""), key):
+            return JSONResponse({"detail": "Clé API manquante ou invalide"}, status_code=401)
+    return await call_next(request)
+
+
 # Le frontend Next.js tourne sur un autre port (3000) : le navigateur bloque
 # ses requêtes vers l'API (port 8000) sauf si l'API l'autorise explicitement.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],  # le frontend peut lire le nom du fichier téléchargé
