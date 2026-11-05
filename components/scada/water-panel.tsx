@@ -1,422 +1,147 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { useDashboard } from "@/context/dashboard-context"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from "recharts"
-import { Droplets, Recycle, TrendingDown, CheckCircle, Gauge, Thermometer, Activity, AlertTriangle } from "lucide-react"
+import { useState } from "react"
+import { Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { AlertTriangle } from "lucide-react"
+import { useMeta, useSeries } from "@/lib/api"
+import { ApiError } from "./data-source"
+import { ChartTooltip, LegendDot, PageHeader, Panel, PeriodPicker, StatCard, dayLabel, fmt, mean, periodRange, sum, type PeriodId } from "./ui"
+
+const FIELDS = [
+  "eau_dessalee_m3", "wds_production_m3", "wds_consommation_m3", "stock_wds_sulfurique_m3",
+  "wds_vers_centrale_m3", "wds_vers_mc_m3", "wds_vers_sulfurique_m3", "eau_regeneration_ted_m3",
+  "soude_t", "acide_sulfurique_t", "dci_est_m3", "dci_ouest_m3", "step_m3",
+]
 
 export function WaterPanel() {
-  const { dataMultiplier, anomalyActive } = useDashboard()
-  const [currentFlow, setCurrentFlow] = useState(1285.6)
-  const [recycleRate, setRecycleRate] = useState(68.2)
-  const [monthlySavings, setMonthlySavings] = useState(4250)
-  const [avgQuality, setAvgQuality] = useState(96.8)
+  const [period, setPeriod] = useState<PeriodId>("all")
+  const { data: meta, error } = useMeta()
+  const [start, end] = periodRange(period, meta?.first_date, meta?.last_date)
+  const { data: series } = useSeries(FIELDS, start, end)
 
-  // Apply multiplier for anomaly - water leak reduces water availability
-  const adjustedFlow = useMemo(() => {
-    if (anomalyActive === "water-leak") {
-      return currentFlow * 0.7 // Simulate 30% water loss
-    }
-    return currentFlow
-  }, [currentFlow, anomalyActive])
+  if (error) return <ApiError error={error} />
+  const raw = series?.rows ?? []
+  const rows = raw.map((r) => ({ ...r, jour: dayLabel(r.date), dci: (r.dci_est_m3 ?? 0) + (r.dci_ouest_m3 ?? 0) }))
 
-  const adjustedSavings = useMemo(() => {
-    if (anomalyActive === "water-leak") {
-      return monthlySavings * 0.6
-    }
-    return monthlySavings
-  }, [monthlySavings, anomalyActive])
+  const wdsProd = sum(raw, "wds_production_m3")
+  const regen = sum(raw, "eau_regeneration_ted_m3")
+  // Consommation spécifique de réactifs : kg par m³ de WDS produite (les réactifs sont en tonnes)
+  const kgPerM3 = (key: string) => {
+    const t = sum(raw, key)
+    return t === null || !wdsProd ? null : (t * 1000) / wdsProd
+  }
 
-  const [consumptionData, setConsumptionData] = useState([
-    { time: "00:00", consommation: 1180, recyclage: 805 },
-    { time: "04:00", consommation: 1220, recyclage: 835 },
-    { time: "08:00", consommation: 1310, recyclage: 890 },
-    { time: "12:00", consommation: 1280, recyclage: 875 },
-    { time: "16:00", consommation: 1245, recyclage: 850 },
-    { time: "20:00", consommation: 1290, recyclage: 880 },
-  ])
+  const destinations = [
+    { name: "Centrale (chaudières)", value: sum(raw, "wds_vers_centrale_m3") },
+    { name: "Maroc Chimie", value: sum(raw, "wds_vers_mc_m3") },
+    { name: "Unité sulfurique", value: sum(raw, "wds_vers_sulfurique_m3") },
+    { name: "Régénération TED", value: regen },
+  ].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
 
-  const [qualityData, setQualityData] = useState([
-    { parameter: "pH", value: 95 },
-    { parameter: "Turbidité", value: 98 },
-    { parameter: "Conductivité", value: 97 },
-    { parameter: "Chlore", value: 94 },
-    { parameter: "Température", value: 96 },
-  ])
-
-  const [circuits, setCircuits] = useState({
-    primaire: { debit: 520, temp: 42, pression: 8.2, status: "operational" },
-    refroidissement: { debit: 385, temp: 28, pression: 6.5, status: "operational" },
-    recycleTED: { debit: 280, temp: 35, pression: 11.8, status: "warning" },
-    traitement: { debit: 100, temp: 22, pression: 4.2, status: "operational" },
-  })
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Update KPI values
-      setCurrentFlow(prev => prev + (Math.random() - 0.5) * 15)
-      setRecycleRate(prev => Math.min(100, Math.max(50, prev + (Math.random() - 0.5) * 2)))
-      setMonthlySavings(prev => prev + (Math.random() - 0.5) * 50)
-      setAvgQuality(prev => Math.min(100, Math.max(90, prev + (Math.random() - 0.5) * 0.5)))
-
-      // Update consumption chart
-      setConsumptionData(prev => prev.map(point => ({
-        ...point,
-        consommation: point.consommation + (Math.random() - 0.5) * 20,
-        recyclage: point.recyclage + (Math.random() - 0.5) * 15,
-      })))
-
-      // Update quality chart
-      setQualityData(prev => prev.map(param => ({
-        ...param,
-        value: Math.min(100, Math.max(85, param.value + (Math.random() - 0.5) * 2)),
-      })))
-
-      // Update circuits
-      setCircuits(prev => ({
-        primaire: {
-          ...prev.primaire,
-          debit: prev.primaire.debit + (Math.random() - 0.5) * 10,
-          temp: prev.primaire.temp + (Math.random() - 0.5) * 1,
-          pression: prev.primaire.pression + (Math.random() - 0.5) * 0.3,
-        },
-        refroidissement: {
-          ...prev.refroidissement,
-          debit: prev.refroidissement.debit + (Math.random() - 0.5) * 8,
-          temp: prev.refroidissement.temp + (Math.random() - 0.5) * 1,
-          pression: prev.refroidissement.pression + (Math.random() - 0.5) * 0.2,
-        },
-        recycleTED: {
-          ...prev.recycleTED,
-          debit: prev.recycleTED.debit + (Math.random() - 0.5) * 6,
-          temp: prev.recycleTED.temp + (Math.random() - 0.5) * 1,
-          pression: prev.recycleTED.pression + (Math.random() - 0.5) * 0.4,
-          status: prev.recycleTED.pression > 11 ? "warning" : "operational",
-        },
-        traitement: {
-          ...prev.traitement,
-          debit: prev.traitement.debit + (Math.random() - 0.5) * 4,
-          temp: prev.traitement.temp + (Math.random() - 0.5) * 0.8,
-          pression: prev.traitement.pression + (Math.random() - 0.5) * 0.2,
-        },
-      }))
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const flowProgress = Math.min(100, (currentFlow / 1500) * 100)
-  const isQualityConforme = avgQuality >= 95
+  // Le réseau incendie (DCI) ne devrait presque rien consommer hors intervention :
+  // une consommation élevée signale une fuite ou un essai. Seuil = 3 × la médiane des jours non nuls.
+  const dciValues = rows.map((r) => r.dci).filter((x) => x > 0).sort((a, b) => a - b)
+  const dciMedian = dciValues.length ? dciValues[Math.floor(dciValues.length / 2)] : 0
+  const dciThreshold = 3 * dciMedian
+  const dciHigh = rows.filter((r) => r.dci > dciThreshold)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Gestion de l'Eau</h2>
-        {anomalyActive === "water-leak" && (
-          <div className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 bg-red-100 text-red-700 border border-red-300">
-            <AlertTriangle className="w-4 h-4" />
-            Fuite d'Eau Détectée
+    <div className="space-y-4">
+      <PageHeader title="Eau et traitement (TED)" subtitle={`Données réelles · ${start ?? "…"} → ${end ?? "…"} · ${rows.length} jours`}>
+        <PeriodPicker value={period} onChange={setPeriod} />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard label="Eau dessalée reçue" value={fmt(sum(raw, "eau_dessalee_m3"), 0)} unit="m³" accent="text-sky-700" />
+        <StatCard label="Production WDS" value={fmt(wdsProd, 0)} unit="m³" accent="text-cyan-600" hint={`${fmt(mean(raw, "wds_production_m3"), 0)} m³/j en moyenne`} />
+        <StatCard label="Consommation WDS" value={fmt(sum(raw, "wds_consommation_m3"), 0)} unit="m³" accent="text-sky-600" />
+        <StatCard label="Eau de régénération" value={fmt(regen === null || !wdsProd ? null : (regen / wdsProd) * 100, 1)} unit="%" hint="de la WDS produite, consommée par le TED lui-même" />
+        <StatCard label="Soude consommée" value={fmt(kgPerM3("soude_t"), 2)} unit="kg/m³" hint={`${fmt(sum(raw, "soude_t"), 1)} t sur la période`} />
+        <StatCard label="Acide sulfurique" value={fmt(kgPerM3("acide_sulfurique_t"), 2)} unit="kg/m³" hint={`${fmt(sum(raw, "acide_sulfurique_t"), 1)} t sur la période`} />
+      </div>
+
+      <Panel title="Eau désilicée (WDS) : production, consommation et stock" subtitle="m³ par jour · stock en fin de journée (axe de droite)">
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={rows} margin={{ top: 8, right: 0, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" vertical={false} />
+              <XAxis dataKey="jour" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} minTickGap={28} />
+              <YAxis yAxisId="flux" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={56} />
+              <YAxis yAxisId="stock" orientation="right" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={48} />
+              <Tooltip content={<ChartTooltip unit="m³" />} />
+              <Line yAxisId="flux" type="monotone" dataKey="wds_production_m3" name="Production WDS" stroke="var(--color-cyan-500)" strokeWidth={1.8} dot={false} isAnimationActive={false} />
+              <Line yAxisId="flux" type="monotone" dataKey="wds_consommation_m3" name="Consommation WDS" stroke="var(--color-sky-700)" strokeWidth={1.2} dot={false} isAnimationActive={false} />
+              <Line yAxisId="stock" type="monotone" dataKey="stock_wds_sulfurique_m3" name="Stock" stroke="var(--color-violet-500)" strokeWidth={1.2} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-600">
+          <LegendDot className="bg-cyan-500" label="Production WDS" />
+          <LegendDot className="bg-sky-700" label="Consommation WDS" />
+          <LegendDot className="bg-violet-500" label="Stock côté sulfurique" />
+        </div>
+      </Panel>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel title="Où va l'eau désilicée ?" subtitle="m³ livrés sur la période">
+          <ul className="space-y-3 pt-1">
+            {destinations.map((d) => {
+              const total = destinations.reduce((a, b) => a + (b.value ?? 0), 0) || 1
+              const pct = ((d.value ?? 0) / total) * 100
+              return (
+                <li key={d.name}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-700">{d.name}</span>
+                    <span className="tabular text-slate-900">
+                      <b>{fmt(d.value, 0)}</b> m³ · {fmt(pct, 1)} %
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-full bg-cyan-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </Panel>
+
+        <Panel title="Réactifs de régénération" subtitle="Tonnes par jour · soude (NaOH) et acide sulfurique (H₂SO₄)">
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rows} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" vertical={false} />
+                <XAxis dataKey="jour" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} minTickGap={28} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={48} />
+                <Tooltip content={<ChartTooltip unit="t" />} />
+                <Bar dataKey="soude_t" name="Soude" stackId="r" fill="var(--color-teal-500)" isAnimationActive={false} />
+                <Bar dataKey="acide_sulfurique_t" name="Acide sulfurique" stackId="r" fill="var(--color-amber-500)" isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        )}
+        </Panel>
       </div>
 
-      {/* Top KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-white border-2 border-blue-200 shadow-lg shadow-blue-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Débit Actuel</p>
-              <Droplets className="w-5 h-5 text-blue-700" />
-            </div>
-            <p className="text-3xl font-bold text-blue-700 mb-3">{adjustedFlow.toFixed(1)} m³/h</p>
-            <div className="w-full bg-slate-100 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  anomalyActive === "water-leak" 
-                    ? "bg-gradient-to-r from-red-500 to-orange-500"
-                    : "bg-gradient-to-r from-blue-500 to-cyan-500"
-                }`}
-                style={{ width: `${Math.min(100, (adjustedFlow / 1500) * 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-2">Capacité: 1500 m³/h</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-2 border-emerald-200 shadow-lg shadow-emerald-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Taux de Recyclage</p>
-              <Recycle className="w-5 h-5 text-emerald-700" />
-            </div>
-            <p className="text-3xl font-bold text-emerald-700">{recycleRate.toFixed(1)}%</p>
-            <p className="text-xs text-emerald-700 mt-2">+2.3% vs hier</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-2 border-cyan-200 shadow-lg shadow-cyan-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Économie d'Eau (mois)</p>
-              <TrendingDown className="w-5 h-5 text-cyan-700" />
-            </div>
-            <p className="text-3xl font-bold text-cyan-700">{adjustedSavings.toFixed(0)} m³</p>
-            <p className="text-xs text-cyan-700 mt-2">{anomalyActive === "water-leak" ? "-40% perte" : "-15% consommation"}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-2 border-purple-200 shadow-lg shadow-purple-500/10">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-600 text-sm">Qualité Moyenne</p>
-              <CheckCircle className="w-5 h-5 text-purple-700" />
-            </div>
-            <p className="text-3xl font-bold text-purple-700">{avgQuality.toFixed(1)}%</p>
-            <Badge 
-              className={`mt-2 ${isQualityConforme ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-red-100 text-red-700 border-red-300'}`}
-            >
-              {isQualityConforme ? 'Conforme' : 'À surveiller'}
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Consumption vs Recycling Chart */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-slate-900 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-700" />
-              Consommation & Recyclage (m³/h)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={consumptionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
-                  <XAxis dataKey="time" stroke="var(--color-slate-500)" />
-                  <YAxis stroke="var(--color-slate-500)" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
-                    labelStyle={{ color: "var(--color-slate-900)", fontWeight: 700 }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="consommation" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3}
-                    name="Consommation"
-                    dot={{ fill: "#3b82f6", r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="recyclage" 
-                    stroke="#10b981" 
-                    strokeWidth={3}
-                    name="Recyclage"
-                    dot={{ fill: "#10b981", r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Water Quality Chart */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-slate-900 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-purple-700" />
-              Qualité de l'Eau (%)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={qualityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" />
-                  <XAxis dataKey="parameter" stroke="var(--color-slate-500)" />
-                  <YAxis stroke="var(--color-slate-500)" domain={[80, 100]} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "var(--color-white)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-900)" }}
-                    labelStyle={{ color: "var(--color-slate-900)", fontWeight: 700 }}
-                  />
-                  <Bar dataKey="value" name="Qualité" radius={[4, 4, 0, 0]}>
-                    {qualityData.map((entry, index) => (
-                      <Cell
-                        key={`bar-${index}`}
-                        fill={entry.value >= 95 ? "#10b981" : entry.value >= 90 ? "#eab308" : "#ef4444"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Circuit Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Circuit Primaire */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-slate-900 text-base flex items-center gap-2">
-                <Droplets className="w-4 h-4 text-blue-700" />
-                Circuit Primaire
-              </CardTitle>
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">
-                Opérationnel
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Gauge className="w-4 h-4" />
-                Débit
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.primaire.debit.toFixed(1)} m³/h</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Thermometer className="w-4 h-4" />
-                Temp
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.primaire.temp.toFixed(1)}°C</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Pression
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.primaire.pression.toFixed(1)} bar</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Circuit Refroidissement */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-slate-900 text-base flex items-center gap-2">
-                <Droplets className="w-4 h-4 text-cyan-700" />
-                Refroidissement
-              </CardTitle>
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">
-                Opérationnel
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Gauge className="w-4 h-4" />
-                Débit
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.refroidissement.debit.toFixed(1)} m³/h</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Thermometer className="w-4 h-4" />
-                Temp
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.refroidissement.temp.toFixed(1)}°C</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Pression
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.refroidissement.pression.toFixed(1)} bar</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recyclage TED */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-slate-900 text-base flex items-center gap-2">
-                <Recycle className="w-4 h-4 text-emerald-700" />
-                Recyclage TED
-              </CardTitle>
-              <Badge className={`${circuits.recycleTED.status === 'warning' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-emerald-100 text-emerald-700 border-emerald-300'}`}>
-                {circuits.recycleTED.status === 'warning' ? 'Alerte' : 'Opérationnel'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Gauge className="w-4 h-4" />
-                Débit
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.recycleTED.debit.toFixed(1)} m³/h</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Thermometer className="w-4 h-4" />
-                Temp
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.recycleTED.temp.toFixed(1)}°C</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Pression
-              </span>
-              <span className={`font-semibold ${circuits.recycleTED.pression > 11 ? 'text-amber-700' : 'text-slate-900'}`}>
-                {circuits.recycleTED.pression.toFixed(1)} bar
-                {circuits.recycleTED.pression > 11 && <AlertTriangle className="w-4 h-4 inline ml-1" />}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Traitement Chimique */}
-        <Card className="bg-white border-slate-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-slate-900 text-base flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-purple-700" />
-                Traitement Chimique
-              </CardTitle>
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">
-                Opérationnel
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Gauge className="w-4 h-4" />
-                Débit
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.traitement.debit.toFixed(1)} m³/h</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Thermometer className="w-4 h-4" />
-                Temp
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.traitement.temp.toFixed(1)}°C</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Pression
-              </span>
-              <span className="text-slate-900 font-semibold">{circuits.traitement.pression.toFixed(1)} bar</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Panel title="Réseau incendie (DCI Est + Ouest)" subtitle={`m³ par jour · seuil de vigilance = 3 × la médiane (${fmt(dciThreshold, 0)} m³/j)`}>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-slate-200)" vertical={false} />
+              <XAxis dataKey="jour" tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} minTickGap={28} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-slate-500)" }} tickLine={false} axisLine={false} width={48} />
+              <Tooltip content={<ChartTooltip unit="m³" />} />
+              <Bar dataKey="dci" name="DCI" isAnimationActive={false} fill="var(--color-sky-500)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 flex items-start gap-2 text-xs text-slate-600">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+          <p>
+            Hors incendie, ce réseau ne devrait presque rien consommer. <b>{dciHigh.length} jour(s)</b> au-dessus du seuil sur la période
+            {dciHigh.length > 0 && ` (max ${fmt(Math.max(...dciHigh.map((r) => r.dci)), 0)} m³ le ${dciHigh.reduce((a, b) => (b.dci > a.dci ? b : a)).jour})`} : fuite, essai ou
+            intervention à vérifier. Ces jours seront des candidats pour la détection d'anomalies.
+          </p>
+        </div>
+      </Panel>
     </div>
   )
 }
