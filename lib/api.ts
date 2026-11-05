@@ -120,3 +120,65 @@ export function fmt(v: number | null | undefined, digits = 1) {
   if (v === null || v === undefined || Number.isNaN(v)) return "—"
   return v.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
+
+/* ------------------------------------------------------------------ */
+/* Simulateur what-if (backend/app/simulator.py)                       */
+/* ------------------------------------------------------------------ */
+
+export interface SimInputs {
+  vhp_t_h: number
+  gta: number
+  bp_t_h: number
+  conso_mw: number
+  prix_dh_mwh: number
+}
+
+export interface SimModel {
+  power_model: { c0: number; c1: number; c2: number; r2: number; mae_mw: number; n_days: number; vhp_min_t_h: number; vhp_max_t_h: number }
+  willans: { a: number; b: number }
+  constants: { gta_capacity_t_h: number; grid_tco2_per_mwh: number }
+  reference: SimInputs
+  presets: { id: string; label: string; hint: string; inputs: SimInputs }[]
+}
+
+export interface SimResult {
+  vapeur_admise_t_h: number
+  vapeur_non_valorisee_t_h: number
+  bp_soutiree_t_h: number
+  condensat_t_h: number
+  production_mw: number
+  conso_specifique_t_mwh: number | null
+  achats_mw: number
+  surplus_mw: number
+  autonomie_pct: number | null
+  cout_achats_dh_jour: number
+  co2_evite_t_jour: number
+  warnings: string[]
+}
+
+export interface SimRun {
+  result: SimResult
+  reference: SimResult
+  gain_dh_jour: number
+  gain_dh_an: number
+  curve: { vhp_t_h: number; production_mw: number }[]
+}
+
+export function useSimModel() {
+  return useSWR<SimModel>("/api/simulate/model", fetcher)
+}
+
+async function postSimulation([, inputs]: [string, SimInputs]): Promise<SimRun> {
+  const res = await fetch(`${API_URL}/api/simulate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(inputs),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+/** Relance la simulation à chaque changement de réglage (SWR garde l'ancien résultat entre-temps). */
+export function useSimulation(inputs: SimInputs | null) {
+  return useSWR<SimRun, Error, [string, SimInputs] | null>(inputs ? ["/api/simulate", inputs] : null, postSimulation, { keepPreviousData: true })
+}
