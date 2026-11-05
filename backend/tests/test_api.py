@@ -80,3 +80,25 @@ def test_live_simulated_sensors_are_labelled_and_in_range(client):
 def test_live_without_day_replays_a_known_date(client):
     replay = client.get("/api/live").json()["replay"]
     assert replay["date"].startswith("2025-01-0") and not replay["pinned"]
+
+
+def test_reports_catalog_and_downloads(client):
+    import io
+
+    from openpyxl import load_workbook
+
+    ids = [r["id"] for r in client.get("/api/reports").json()]
+    assert "synthese" in ids and "qualite" in ids
+    for report_id in ids:
+        pdf = client.get(f"/api/reports/{report_id}.pdf")
+        assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+        assert "attachment" in pdf.headers["content-disposition"]
+        xlsx = client.get(f"/api/reports/{report_id}.xlsx")
+        wb = load_workbook(io.BytesIO(xlsx.content))
+        assert wb.sheetnames[0] == "Synthèse"
+    data = load_workbook(io.BytesIO(client.get("/api/reports/energie.xlsx").content))["Données journalières"]
+    assert data.max_row == 1 + 5  # en-tête + 5 jours
+
+
+def test_unknown_report_is_404(client):
+    assert client.get("/api/reports/nope.pdf").status_code == 404

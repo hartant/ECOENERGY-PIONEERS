@@ -29,6 +29,11 @@ def get_kpis(start: date | None = None, end: date | None = None):
     df = query("SELECT * FROM daily WHERE date BETWEEN ? AND ? ORDER BY date", date_range(start, end))
     if df.empty:
         raise HTTPException(404, "Aucune donnée sur cette période")
+    return KpiReport(start=df["date"].iloc[0], end=df["date"].iloc[-1], days=len(df), groups=compute_groups(df))
+
+
+def compute_groups(df: pd.DataFrame) -> dict[str, dict[str, Kpi]]:
+    """KPI par groupe pour un ensemble de jours (utilisé aussi par les rapports PDF/Excel)."""
 
     def total(col: str):
         return df[col].sum(min_count=1)  # min_count=1 : que des vides → None, pas 0
@@ -72,4 +77,4 @@ def get_kpis(start: date | None = None, end: date | None = None):
             for n in (1, 2, 3)
         },
     }
-    return KpiReport(start=df["date"].iloc[0], end=df["date"].iloc[-1], days=len(df), groups=groups)
+    return groups

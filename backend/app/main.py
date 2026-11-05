@@ -8,7 +8,7 @@ Documentation interactive : http://localhost:8000/docs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import days, kpis, live, meta, simulate
+from app.routers import days, kpis, live, meta, reports, simulate
 
 app = FastAPI(
     title="EcoEnergy Pioneers API",
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # le frontend peut lire le nom du fichier téléchargé
 )
 
 app.include_router(meta.router)
@@ -30,6 +31,7 @@ app.include_router(days.router)
 app.include_router(kpis.router)
 app.include_router(live.router)
 app.include_router(simulate.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health")
