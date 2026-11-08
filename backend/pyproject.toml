@@ -20,7 +20,3 @@ dev = [
     "httpx2>=2.16.0",
     "pytest>=9.2.0",
 ]
-
-# Hébergement Vercel : où trouver l'application FastAPI
-[tool.vercel]
-entrypoint = "app.main:app"

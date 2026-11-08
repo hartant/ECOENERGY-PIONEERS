@@ -7,9 +7,8 @@
 
 import useSWR from "swr"
 
-// Par défaut on passe par le relais Next.js (app/api/backend/[...path]/route.ts) qui ajoute la
-// clé secrète : le navigateur ne connaît jamais l'adresse réelle du backend.
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend"
+// Adresse du backend FastAPI (par défaut : lancé en local sur le port 8000).
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
 /** Adresse complète d'un chemin d'API. On part de `location.origin`, qui ne contient jamais
  * d'identifiants : si la page a été ouverte via http://user:mdp@hôte, le navigateur refuse
